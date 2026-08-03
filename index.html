@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feliz Cumpleaños Kyhara ❤️</title>
+  
+  <!-- SEO & Accesibilidad -->
+  <meta name="description" content="Una experiencia especial e interactiva de cumpleaños para Kyhara.">
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Tipografías de Google Fonts: Cormorant Garamond e Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Lienzos Canvas para Estrellas de Fondo y Confeti -->
+  <canvas id="star-canvas" aria-hidden="true"></canvas>
+  <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
+  <!-- Pantalla de Inicio / Activación de Audio -->
+  <div id="start-overlay" class="overlay">
+    <div class="start-card">
+      <span class="badge">Para Kyhara</span>
+      <h1 class="start-title">Una sorpresa especial te espera</h1>
+      <p class="start-subtitle">Por favor, activa el sonido de tu dispositivo para disfrutar la experiencia completa.</p>
+      <button id="start-btn" class="btn-primary" aria-label="Comenzar experiencia interactiva">
+        <span>✨ Comenzar experiencia</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Contenedor Principal de la Experiencia -->
+  <main class="container">
+    
+    <!-- SECCIÓN DE CUENTA REGRESIVA -->
+    <section id="countdown-section" class="section countdown-wrapper">
+      <div class="badge-container">
+        <span class="pulse-dot"></span>
+        <span class="badge-text">Cuenta Regresiva</span>
+      </div>
+      
+      <h2 class="countdown-heading">Esperando el momento especial...</h2>
+
+      <div class="timer-grid" role="timer" aria-live="polite" aria-label="Tiempo restante">
+        <div class="timer-card">
+          <span id="days" class="timer-value">00</span>
+          <span class="timer-label">Días</span>
+        </div>
+        <div class="timer-card">
+          <span id="hours" class="timer-value">00</span>
+          <span class="timer-label">Horas</span>
+        </div>
+        <div class="timer-card">
+          <span id="minutes" class="timer-value">00</span>
+          <span class="timer-label">Minutos</span>
+        </div>
+        <div class="timer-card">
+          <span id="seconds" class="timer-value">00</span>
+          <span class="timer-label">Segundos</span>
+        </div>
+      </div>
+
+      <div id="audio-indicator" class="audio-status hidden" aria-live="polite">
+        <span class="audio-icon">🎵</span>
+        <span id="audio-track-name" class="audio-text">Reproduciendo música...</span>
+      </div>
+    </section>
+
+    <!-- SECCIÓN DESBLOQUEADA (AL LLEGAR A LAS 00:00 HS) -->
+    <section id="unlocked-section" class="section unlocked-wrapper hidden">
+      
+      <!-- Título escrito letra por letra con efecto typewriter -->
+      <div class="title-container">
+        <h1 id="typewriter-title" class="typewriter-text" aria-live="polite"></h1>
+      </div>
+
+      <!-- Versículo bíblico principal -->
+      <div id="verse-card" class="verse-card hidden">
+        <blockquote class="verse-quote">
+          "Mas buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas."
+        </blockquote>
+        <cite class="verse-author">Mateo 6:33</cite>
+      </div>
+
+      <!-- Botón para abrir la carta -->
+      <div id="letter-btn-container" class="letter-btn-container hidden">
+        <button id="open-letter-btn" class="btn-primary btn-glow" aria-label="Abrir carta de cumpleaños">
+          <span>💌 Abrir mi carta</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL DE LA CARTA Y EL SOBRE ANIMADO -->
+  <div id="letter-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-content">
+      <button id="close-modal-btn" class="close-btn" aria-label="Cerrar carta">&times;</button>
+      
+      <div class="envelope-wrapper">
+        <div id="envelope" class="envelope">
+          <div class="envelope-back"></div>
+          <div class="envelope-lid"></div>
+          <div class="envelope-front"></div>
+          
+          <!-- Hoja interior de la carta -->
+          <div id="letter-paper" class="letter-paper">
+            <h2 id="modal-title" class="letter-title">Kyhara,</h2>
+            
+            <div class="letter-body">
+              <p>Hoy es un día inmensamente especial. Mirar atrás y ver todo lo que hemos compartido me llena de una alegría que no cabe en palabras.</p>
+              
+              <p>Deseo de todo corazón que este nuevo año de vida esté repleto de bendiciones, de sueños cumplidos y de la paz que solo Dios puede dar. Eres una persona extraordinaria, llena de luz, ternura y un corazón bondadoso que transforma todo a tu alrededor.</p>
+              
+              <p>Gracias por tu sonrisa, por tus abrazos, por estar siempre y por enseñarme cada día lo lindo que es caminar juntos. Le pido a Dios que guíe cada uno de tus pasos, que cumpla los anhelos de tu corazón y que me permita seguir celebrando tu vida por muchísimos años más.</p>
+              
+              <blockquote class="letter-verse">
+                "Mas buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas."
+                <span>Mateo 6:33</span>
+              </blockquote>
+
+              <div class="letter-closing">
+                <p>Con todo mi corazón, con toda mi alma, y con toda mi mente jeje :)</p>
+                <p class="letter-love">Te amo tres millones ❤️</p>
+                <span class="letter-signature">— Lucas</span>
+              </div>
+
+              <!-- Foto de ustedes en formato jpeg -->
+              <div class="letter-photo-wrapper">
+                <img src="assets/nosotros.jpeg" alt="Lucas y Kyhara juntos" class="letter-photo" loading="lazy">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ELEMENTOS DE AUDIO -->
+  <audio id="audio-enganchado" src="assets/enganchado.mp3" preload="auto"></audio>
+  <audio id="audio-sky" src="assets/a-sky-full-of-stars.mp3" preload="auto"></audio>
+
+  <script src="script.js"></script>
+</body>
+</html>
