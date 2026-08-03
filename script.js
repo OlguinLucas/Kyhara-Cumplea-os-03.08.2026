@@ -12,12 +12,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fecha objetivo: 03 de Agosto de 2026, 00:00 hs (Zona Horaria Argentina UTC-3)
   const TARGET_DATE = new Date('2026-08-03T00:00:00-03:00').getTime();
   
-  const TOTAL_WAIT_MS = 120 * 1000; // 2 minutos (120 segundos)
+  const TOTAL_WAIT_MS = 150 * 1000; // 2 min y 30 seg (150 segundos)
   const SKY_TRIGGER_SECONDS = 80;    // 1 min y 20 seg (80 segundos)
   
   // Parámetros URL para Pruebas:
   // ?preview=true -> Desbloqueo inmediato
-  // ?preview=wait -> Simula la espera de 2 min (Enganchado -> Sky at 1:20)
+  // ?preview=wait -> Simula la espera de 2:30 min (Enganchado -> Sky at 1:20)
   const urlParams = new URLSearchParams(window.location.search);
   const IS_PREVIEW_DIRECT = urlParams.get('preview') === 'true';
   const IS_PREVIEW_WAIT = urlParams.get('preview') === 'wait';
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // MANEJO DE AUDIO Y AUTOPLAY
   // ==========================================================================
 
-  // Habilita permisos de reproducción para AMBOS audios al tocar el botón inicial
+  // Pre-activa permisos de reproducción para ambos reproductores
   function unlockAudioPermissions() {
     if (audioSky) {
       audioSky.load();
@@ -94,8 +94,15 @@ document.addEventListener('DOMContentLoaded', () => {
     audioElement.volume = 1;
 
     if (isRandomStart) {
-      const randomPoint = getRandomStartTime(audioElement);
-      audioElement.currentTime = randomPoint;
+      // Si ya están cargados los metadatos, salta al segundo aleatorio directamente
+      if (audioElement.duration && !isNaN(audioElement.duration) && audioElement.duration > 30) {
+        audioElement.currentTime = getRandomStartTime(audioElement);
+      } else {
+        // Si aún no cargó la duración, espera al evento 'loadedmetadata' para buscar el punto aleatorio
+        audioElement.addEventListener('loadedmetadata', () => {
+          audioElement.currentTime = getRandomStartTime(audioElement);
+        }, { once: true });
+      }
     }
 
     audioElement.play().catch(err => console.warn('Autoplay restringido por el navegador:', err));
@@ -148,7 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, intervalTime);
       }).catch(err => {
         console.error('Error al reproducir el segundo audio:', err);
-        // Respaldo: si por alguna razón falla el segundo audio, no cortar el primero
         fromAudio.volume = 1;
       });
     }
@@ -163,14 +169,12 @@ document.addEventListener('DOMContentLoaded', () => {
     startOverlay.style.visibility = 'hidden';
     audioIndicator.classList.remove('hidden');
 
-    // Activar permisos de ambos reproductores al hacer clic
     unlockAudioPermissions();
-
     initCountdown();
   });
 
   // ==========================================================================
-  // SISTEMA DE CUENTA REGRESIVA Y ESPERA DE 2 MINUTOS
+  // SISTEMA DE CUENTA REGRESIVA Y ESPERA DE 2:30 MINUTOS
   // ==========================================================================
 
   function initCountdown() {
@@ -180,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Modo de prueba de espera obligatoria de 2 minutos
+    // Modo de prueba de espera obligatoria de 2:30 minutos
     if (IS_PREVIEW_WAIT) {
       runWaitTimerMode();
       return;
@@ -189,13 +193,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = new Date().getTime();
     const distance = TARGET_DATE - now;
 
-    // SI YA SON LAS 00:00 O FALTAN MENOS DE 2 MINUTOS AL ENTRAR
+    // SI YA SON LAS 00:00 O FALTAN MENOS DE 2:30 MINUTOS AL ENTRAR
     if (distance <= 0 || distance < TOTAL_WAIT_MS) {
       runWaitTimerMode();
       return;
     }
 
-    // SI ENTRA ANTES DE LAS 00:00 (MÁS DE 2 MINUTOS RESTANTES)
+    // SI ENTRA ANTES DE LAS 00:00 (MÁS DE 2:30 MINUTOS RESTANTES)
     playAudio(audioEnganchado, 'Música ambiental', true);
     updateTimer();
 
@@ -209,18 +213,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   }
 
-  // Ejecuta la espera forzada de 2 minutos (Enganchado -> Sky at 1:20)
+  // Ejecuta la espera forzada de 2:30 minutos (Enganchado aleatorio -> Sky at 1:20)
   function runWaitTimerMode() {
     let remainingWaitMs = TOTAL_WAIT_MS;
 
-    // Iniciar con música ambiental (enganchado)
+    // Iniciar con música ambiental (enganchado) en punto aleatorio
     playAudio(audioEnganchado, 'Música ambiental', true);
 
-    // Inicializar reloj visual en 02:00
+    // Inicializar reloj visual dinámicamente en 02:30
+    const initialMins = Math.floor(TOTAL_WAIT_MS / 60000);
+    const initialSecs = Math.floor((TOTAL_WAIT_MS % 60000) / 1000);
     daysEl.textContent = '00';
     hoursEl.textContent = '00';
-    minutesEl.textContent = '02';
-    secondsEl.textContent = '00';
+    minutesEl.textContent = String(initialMins).padStart(2, '0');
+    secondsEl.textContent = String(initialSecs).padStart(2, '0');
 
     const forcedInterval = setInterval(() => {
       remainingWaitMs -= 1000;
