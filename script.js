@@ -11,11 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Fecha objetivo: 03 de Agosto de 2026, 00:00 hs (Zona Horaria Argentina UTC-3)
   const TARGET_DATE = new Date('2026-08-03T00:00:00-03:00').getTime();
-  const WAIT_TIME_MS = 80 * 1000; // 1 min y 20 seg (80 segundos)
+  
+  const TOTAL_WAIT_MS = 120 * 1000; // 2 minutos (120 segundos)
+  const SKY_TRIGGER_SECONDS = 80;    // 1 min y 20 seg (80 segundos)
   
   // Parámetros URL para Pruebas:
   // ?preview=true -> Desbloqueo inmediato
-  // ?preview=wait -> Simula la espera obligatoria de 1m 20s con canción completa
+  // ?preview=wait -> Simula la espera de 2 min (Enganchado -> Sky at 1:20)
   const urlParams = new URLSearchParams(window.location.search);
   const IS_PREVIEW_DIRECT = urlParams.get('preview') === 'true';
   const IS_PREVIEW_WAIT = urlParams.get('preview') === 'wait';
@@ -53,8 +55,26 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeAudio = null;
 
   // ==========================================================================
-  // MANEJO DE AUDIO
+  // MANEJO DE AUDIO Y AUTOPLAY
   // ==========================================================================
+
+  // Habilita permisos de reproducción para AMBOS audios al tocar el botón inicial
+  function unlockAudioPermissions() {
+    if (audioSky) {
+      audioSky.load();
+      const skyPromise = audioSky.play();
+      if (skyPromise !== undefined) {
+        skyPromise.then(() => {
+          audioSky.pause();
+          audioSky.currentTime = 0;
+        }).catch(err => console.warn('Pre-activación de Sky:', err));
+      }
+    }
+
+    if (audioEnganchado) {
+      audioEnganchado.load();
+    }
+  }
 
   function getRandomStartTime(audioElement) {
     if (audioElement.duration && !isNaN(audioElement.duration) && audioElement.duration > 30) {
@@ -90,31 +110,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Fundido cruzado de 3.5 segundos entre canciones
   function crossfadeAudio(fromAudio, toAudio, toStartTime = 0, newTrackLabel = '') {
-    const fadeDuration = 1500;
-    const steps = 30;
+    const fadeDuration = 3500; // 3.5 segundos de transición suave
+    const steps = 50;
     const intervalTime = fadeDuration / steps;
     let step = 0;
 
-    toAudio.currentTime = toStartTime;
+    try {
+      if (toAudio.readyState >= 1) {
+        toAudio.currentTime = toStartTime;
+      }
+    } catch (e) {
+      console.warn("No se pudo establecer currentTime en toAudio:", e);
+    }
+
     toAudio.volume = 0;
-    toAudio.play().catch(err => console.warn('Error al iniciar audio:', err));
+    const playPromise = toAudio.play();
 
-    const fadeInterval = setInterval(() => {
-      step++;
-      const progress = step / steps;
-
-      fromAudio.volume = Math.max(0, 1 - progress);
-      toAudio.volume = Math.min(1, progress);
-
-      if (step >= steps) {
-        clearInterval(fadeInterval);
-        fromAudio.pause();
-        fromAudio.volume = 1;
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
         activeAudio = toAudio;
         if (newTrackLabel) audioTrackName.textContent = newTrackLabel;
-      }
-    }, intervalTime);
+
+        const fadeInterval = setInterval(() => {
+          step++;
+          const progress = step / steps;
+
+          fromAudio.volume = Math.max(0, 1 - progress);
+          toAudio.volume = Math.min(1, progress);
+
+          if (step >= steps) {
+            clearInterval(fadeInterval);
+            fromAudio.pause();
+            fromAudio.volume = 1;
+          }
+        }, intervalTime);
+      }).catch(err => {
+        console.error('Error al reproducir el segundo audio:', err);
+        // Respaldo: si por alguna razón falla el segundo audio, no cortar el primero
+        fromAudio.volume = 1;
+      });
+    }
   }
 
   // ==========================================================================
@@ -126,21 +163,24 @@ document.addEventListener('DOMContentLoaded', () => {
     startOverlay.style.visibility = 'hidden';
     audioIndicator.classList.remove('hidden');
 
+    // Activar permisos de ambos reproductores al hacer clic
+    unlockAudioPermissions();
+
     initCountdown();
   });
 
   // ==========================================================================
-  // SISTEMA DE CUENTA REGRESIVA Y ESPERA DE 1:20 MIN
+  // SISTEMA DE CUENTA REGRESIVA Y ESPERA DE 2 MINUTOS
   // ==========================================================================
 
   function initCountdown() {
-    // Si se activa el modo de prueba directa
+    // Modo de prueba de desbloqueo directo
     if (IS_PREVIEW_DIRECT) {
       triggerUnlockExperience();
       return;
     }
 
-    // Si se activa el modo de prueba de espera (1:20 min)
+    // Modo de prueba de espera obligatoria de 2 minutos
     if (IS_PREVIEW_WAIT) {
       runWaitTimerMode();
       return;
@@ -149,13 +189,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = new Date().getTime();
     const distance = TARGET_DATE - now;
 
-    // SI YA SON LAS 00:00 O FALTAN MENOS DE 1 MIN Y 20 SEG AL ENTRAR
-    if (distance <= 0 || distance < WAIT_TIME_MS) {
+    // SI YA SON LAS 00:00 O FALTAN MENOS DE 2 MINUTOS AL ENTRAR
+    if (distance <= 0 || distance < TOTAL_WAIT_MS) {
       runWaitTimerMode();
       return;
     }
 
-    // SI ENTRA ANTES DE LAS 00:00 (MÁS DE 1:20 MINUTOS RESTANTES)
+    // SI ENTRA ANTES DE LAS 00:00 (MÁS DE 2 MINUTOS RESTANTES)
     playAudio(audioEnganchado, 'Música ambiental', true);
     updateTimer();
 
@@ -169,21 +209,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   }
 
-  // Función encargada de ejecutar la cuenta regresiva de 1m 20s
+  // Ejecuta la espera forzada de 2 minutos (Enganchado -> Sky at 1:20)
   function runWaitTimerMode() {
-    let remainingWaitMs = WAIT_TIME_MS;
+    let remainingWaitMs = TOTAL_WAIT_MS;
 
-    // Iniciar A Sky Full of Stars desde el segundo 0
-    playAudio(audioSky, 'A Sky Full of Stars - Coldplay');
+    // Iniciar con música ambiental (enganchado)
+    playAudio(audioEnganchado, 'Música ambiental', true);
 
-    // Inicializar reloj visual en 01:20
+    // Inicializar reloj visual en 02:00
     daysEl.textContent = '00';
     hoursEl.textContent = '00';
-    minutesEl.textContent = '01';
-    secondsEl.textContent = '20';
+    minutesEl.textContent = '02';
+    secondsEl.textContent = '00';
 
     const forcedInterval = setInterval(() => {
       remainingWaitMs -= 1000;
+      const totalSecsRemaining = Math.floor(remainingWaitMs / 1000);
+
+      // Transición al llegar a 80 segundos (01:20)
+      if (totalSecsRemaining <= SKY_TRIGGER_SECONDS && !transitionTriggered) {
+        transitionTriggered = true;
+        crossfadeAudio(audioEnganchado, audioSky, 0, 'A Sky Full of Stars - Coldplay');
+      }
 
       if (remainingWaitMs <= 0) {
         clearInterval(forcedInterval);
@@ -193,8 +240,8 @@ document.addEventListener('DOMContentLoaded', () => {
         secondsEl.textContent = '00';
         triggerUnlockExperience();
       } else {
-        const mins = Math.floor(remainingWaitMs / 60000);
-        const secs = Math.floor((remainingWaitMs % 60000) / 1000);
+        const mins = Math.floor(totalSecsRemaining / 60);
+        const secs = totalSecsRemaining % 60;
         daysEl.textContent = '00';
         hoursEl.textContent = '00';
         minutesEl.textContent = String(mins).padStart(2, '0');
@@ -218,9 +265,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalSeconds = Math.floor(distance / 1000);
 
     // Transición de música cuando faltan exactamente 80 segundos (1m 20s)
-    if (totalSeconds <= 80 && !transitionTriggered && !IS_PREVIEW_DIRECT && !IS_PREVIEW_WAIT) {
+    if (totalSeconds <= SKY_TRIGGER_SECONDS && !transitionTriggered && !IS_PREVIEW_DIRECT && !IS_PREVIEW_WAIT) {
       transitionTriggered = true;
-      const skyStartOffset = Math.max(0, 80 - totalSeconds);
+      const skyStartOffset = Math.max(0, SKY_TRIGGER_SECONDS - totalSeconds);
       crossfadeAudio(audioEnganchado, audioSky, skyStartOffset, 'A Sky Full of Stars - Coldplay');
     }
 
