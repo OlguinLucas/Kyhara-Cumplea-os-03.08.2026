@@ -11,13 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Fecha objetivo: 03 de Agosto de 2026, 00:00 hs (Zona Horaria Argentina UTC-3)
   const TARGET_DATE = new Date('2026-08-03T00:00:00-03:00').getTime();
-  
-  const TOTAL_WAIT_MS = 120 * 1000; // 2 minutos (120 segundos)
-  const SKY_TRIGGER_SECONDS = 80;    // 1 min y 20 seg (80 segundos)
+  const WAIT_TIME_MS = 80 * 1000; // 1 min y 20 seg (80 segundos)
   
   // Parámetros URL para Pruebas:
   // ?preview=true -> Desbloqueo inmediato
-  // ?preview=wait -> Simula la espera de 2 min (Enganchado -> Sky at 1:20)
+  // ?preview=wait -> Simula la espera obligatoria de 1m 20s con canción completa
   const urlParams = new URLSearchParams(window.location.search);
   const IS_PREVIEW_DIRECT = urlParams.get('preview') === 'true';
   const IS_PREVIEW_WAIT = urlParams.get('preview') === 'wait';
@@ -55,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeAudio = null;
 
   // ==========================================================================
-  // MANEJO DE AUDIO Y TRANSICIONES
+  // MANEJO DE AUDIO
   // ==========================================================================
 
   function getRandomStartTime(audioElement) {
@@ -92,10 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Fundido cruzado de 3.5 segundos entre canciones
   function crossfadeAudio(fromAudio, toAudio, toStartTime = 0, newTrackLabel = '') {
-    const fadeDuration = 3500; // 3.5 segundos de transición suave
-    const steps = 50;
+    const fadeDuration = 1500;
+    const steps = 30;
     const intervalTime = fadeDuration / steps;
     let step = 0;
 
@@ -133,17 +130,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==========================================================================
-  // SISTEMA DE CUENTA REGRESIVA Y ESPERA DE 2 MINUTOS
+  // SISTEMA DE CUENTA REGRESIVA Y ESPERA DE 1:20 MIN
   // ==========================================================================
 
   function initCountdown() {
-    // Modo de prueba de desbloqueo directo
+    // Si se activa el modo de prueba directa
     if (IS_PREVIEW_DIRECT) {
       triggerUnlockExperience();
       return;
     }
 
-    // Modo de prueba de espera obligatoria de 2 minutos
+    // Si se activa el modo de prueba de espera (1:20 min)
     if (IS_PREVIEW_WAIT) {
       runWaitTimerMode();
       return;
@@ -152,13 +149,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = new Date().getTime();
     const distance = TARGET_DATE - now;
 
-    // SI YA SON LAS 00:00 O FALTAN MENOS DE 2 MINUTOS AL ENTRAR
-    if (distance <= 0 || distance < TOTAL_WAIT_MS) {
+    // SI YA SON LAS 00:00 O FALTAN MENOS DE 1 MIN Y 20 SEG AL ENTRAR
+    if (distance <= 0 || distance < WAIT_TIME_MS) {
       runWaitTimerMode();
       return;
     }
 
-    // SI ENTRA ANTES DE LAS 00:00 (MÁS DE 2 MINUTOS RESTANTES)
+    // SI ENTRA ANTES DE LAS 00:00 (MÁS DE 1:20 MINUTOS RESTANTES)
     playAudio(audioEnganchado, 'Música ambiental', true);
     updateTimer();
 
@@ -172,28 +169,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   }
 
-  // Ejecuta la espera forzada de 2 minutos (Enganchado -> Sky at 1:20)
+  // Función encargada de ejecutar la cuenta regresiva de 1m 20s
   function runWaitTimerMode() {
-    let remainingWaitMs = TOTAL_WAIT_MS;
+    let remainingWaitMs = WAIT_TIME_MS;
 
-    // Iniciar con música ambiental (enganchado)
-    playAudio(audioEnganchado, 'Música ambiental', true);
+    // Iniciar A Sky Full of Stars desde el segundo 0
+    playAudio(audioSky, 'A Sky Full of Stars - Coldplay');
 
-    // Inicializar reloj visual en 02:00
+    // Inicializar reloj visual en 01:20
     daysEl.textContent = '00';
     hoursEl.textContent = '00';
-    minutesEl.textContent = '02';
-    secondsEl.textContent = '00';
+    minutesEl.textContent = '01';
+    secondsEl.textContent = '20';
 
     const forcedInterval = setInterval(() => {
       remainingWaitMs -= 1000;
-      const totalSecsRemaining = Math.floor(remainingWaitMs / 1000);
-
-      // Transición al llegar a 80 segundos (01:20)
-      if (totalSecsRemaining <= SKY_TRIGGER_SECONDS && !transitionTriggered) {
-        transitionTriggered = true;
-        crossfadeAudio(audioEnganchado, audioSky, 0, 'A Sky Full of Stars - Coldplay');
-      }
 
       if (remainingWaitMs <= 0) {
         clearInterval(forcedInterval);
@@ -203,8 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
         secondsEl.textContent = '00';
         triggerUnlockExperience();
       } else {
-        const mins = Math.floor(totalSecsRemaining / 60);
-        const secs = totalSecsRemaining % 60;
+        const mins = Math.floor(remainingWaitMs / 60000);
+        const secs = Math.floor((remainingWaitMs % 60000) / 1000);
         daysEl.textContent = '00';
         hoursEl.textContent = '00';
         minutesEl.textContent = String(mins).padStart(2, '0');
@@ -228,9 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalSeconds = Math.floor(distance / 1000);
 
     // Transición de música cuando faltan exactamente 80 segundos (1m 20s)
-    if (totalSeconds <= SKY_TRIGGER_SECONDS && !transitionTriggered && !IS_PREVIEW_DIRECT && !IS_PREVIEW_WAIT) {
+    if (totalSeconds <= 80 && !transitionTriggered && !IS_PREVIEW_DIRECT && !IS_PREVIEW_WAIT) {
       transitionTriggered = true;
-      const skyStartOffset = Math.max(0, SKY_TRIGGER_SECONDS - totalSeconds);
+      const skyStartOffset = Math.max(0, 80 - totalSeconds);
       crossfadeAudio(audioEnganchado, audioSky, skyStartOffset, 'A Sky Full of Stars - Coldplay');
     }
 
